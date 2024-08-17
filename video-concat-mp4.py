@@ -17,7 +17,7 @@ from collections import Counter
 # ==============================================================================
 # Logger class
 # by Kseen715
-# v1.3
+# v1.5
 # ==============================================================================
 import datetime, inspect
 
@@ -388,7 +388,7 @@ def convert_to(filename, v_codec='h264', a_codec='aac', scale='1280:720'):
     if result.stderr:
         Logger.info(result.stderr.decode())
     if result.returncode != 0:
-        Logger.error('Process returned: ' + result.returncode)
+        Logger.error('Process returned: ' + str(result.returncode))
         exit(result.returncode)
     return new_filename
 
@@ -457,7 +457,7 @@ def concatenate_videos(video_list, output_file, codec, audio_codec):
     if result.stderr:
         Logger.info(result.stderr.decode())
     if result.returncode != 0:
-        Logger.error('Process returned: ' + result.returncode)
+        Logger.error('Process returned: ' + str(result.returncode))
         exit(result.returncode)
     # Clean up the temporary file
     os.remove(video_list_file)
@@ -492,8 +492,8 @@ if __name__ == "__main__":
         help="Automatically answer yes to all prompts.")
     # --log-level
     parser.add_argument(
-        "--log-level", type=str, default="INFO", 
-        help="Log level. [NONE, ERROR, WARNING, SUCCESS, INFO, DEBUG]")
+        "--log-level", type=str, default="INFO", choices=LOG_LEVELS.keys(),
+        help="Log level. Default: 'INFO'.")
     parser.add_argument(
         "--log-file", type=str, default="./.logs/concat-mp4s.log", 
         help="Log file path. Default: './.logs/concat-mp4s.log'. " \
@@ -502,7 +502,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     LOG_LEVEL = LOG_LEVELS[args.log_level]
-    LOG_FILE = os.path.join(args.directory, '.logs', 'concat-mp4s.log')
+    LOG_FILE = os.path.join(args.directory, '.logs', 'video-concat-mp4.log')
 
     v_codec = args.v_codec
     a_codec = args.a_codec
