@@ -13,6 +13,7 @@ import subprocess
 import datetime
 import argparse
 from collections import Counter
+import concurrent.futures
 
 # ==============================================================================
 # Logger class
@@ -276,8 +277,10 @@ class Logger:
 # End of Logger class
 # ==============================================================================
 
-def get_sorted_videos(directory):
-    video_files = [f for f in os.listdir(directory) if f.endswith('.mp4')]
+
+
+def get_sorted_videos(directory, fextension='.mp4'):
+    video_files = [f for f in os.listdir(directory) if f.lower().endswith(fextension.lower())]
     video_files_with_time = [(os.path.join(directory, f), os.path.getmtime(os.path.join(directory, f))) for f in video_files]
     sorted_videos = sorted(video_files_with_time, key=lambda x: x[1])
     return [video[0] for video in sorted_videos]
@@ -339,28 +342,30 @@ def get_audio_bitrate(video_file):
 
 
 def find_most_common_video_codec(video_list):
-    codecs = [get_video_codec(video) for video in video_list]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        codecs = list(executor.map(get_video_codec, video_list))
     most_common_codec = Counter(codecs).most_common(1)[0][0]
     return most_common_codec
 
-
 def find_most_common_audio_codec(video_list):
-    codecs = [get_audio_codec(video) for video in video_list]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        codecs = list(executor.map(get_audio_codec, video_list))
     most_common_codec = Counter(codecs).most_common(1)[0][0]
     return most_common_codec
 
 
 def count_video_codecs(video_list):
-    codecs = [get_video_codec(video) for video in video_list]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        codecs = list(executor.map(get_video_codec, video_list))
     return Counter(codecs)
-
 
 def count_audio_codecs(video_list):
-    codecs = [get_audio_codec(video) for video in video_list]
+    with concurrent.futures.ThreadPoolExecutor(max_workers=os.cpu_count()) as executor:
+        codecs = list(executor.map(get_audio_codec, video_list))
     return Counter(codecs)
 
 
-def convert_to(filename, v_codec='h264', a_codec='aac', scale='1280:720'):
+def convert_to(filename, bitrate, new_file_extension='mp4', v_codec='h264', a_codec='aac', scale='1280:720'):
     # Get video folder to save the new video
     video_folder = os.path.dirname(filename)
     video_folder = os.path.join(video_folder, '.temp')
@@ -369,6 +374,7 @@ def convert_to(filename, v_codec='h264', a_codec='aac', scale='1280:720'):
         os.makedirs(video_folder)
     # Convert the video to new format
     new_filename = os.path.join(video_folder, os.path.basename(filename))
+    new_filename = os.path.splitext(new_filename)[0] + '.' + new_file_extension
     ffmpeg_command = [
         'ffmpeg',
         '-hide_banner',
@@ -378,6 +384,7 @@ def convert_to(filename, v_codec='h264', a_codec='aac', scale='1280:720'):
         '-i', filename,
         '-vf', f'scale={scale}',
         '-c:v', v_codec,
+        "-b:v", str(bitrate),
         '-c:a', a_codec,
         new_filename
     ]
@@ -393,10 +400,10 @@ def convert_to(filename, v_codec='h264', a_codec='aac', scale='1280:720'):
     return new_filename
 
 
-def many_convert_to(video_list, v_codec='h264', a_codec='aac', scale='1280:720'):
+def many_convert_to(video_list, bitrate, new_file_extension, v_codec='h264', a_codec='aac', scale='1280:720'):
     raws = []
     for video in video_list:
-        raw_filename = convert_to(video, v_codec, a_codec, scale)
+        raw_filename = convert_to(video, bitrate, new_file_extension, v_codec, a_codec, scale)
         raws.append(raw_filename)
     return raws
 
@@ -468,93 +475,121 @@ def fancy_int(number):
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Concatenate multiple mp4 files into a single video.")
-    parser.add_argument(
-        "directory", 
-        type=str, 
-        help="Directory containing the mp4 files.")
-    parser.add_argument(
-        "output_file", 
-        type=str, 
-        help="Output file name.")
-    # choose codec
-    parser.add_argument(
-        "--v-codec", type=str, default="libx264", 
-        help="Video codec to use for encoding. " \
-            + "[libx264, h264_nvenc, hevc, hevc_nvenc, etc.]")
-    parser.add_argument(
-        "--a-codec", type=str, default="aac", 
-        help="Audio codec to use for encoding.")
-    # -y --yes flag
-    parser.add_argument(
-        "-y", "--yes", action="store_true", 
-        help="Automatically answer yes to all prompts.")
-    # --log-level
-    parser.add_argument(
-        "--log-level", type=str, default="INFO", choices=LOG_LEVELS.keys(),
-        help="Log level. Default: 'INFO'.")
-    parser.add_argument(
-        "--log-file", type=str, default="./.logs/concat-mp4s.log", 
-        help="Log file path. Default: './.logs/concat-mp4s.log'. " \
-            + "To disable logging to a file, set to an empty string.")
+    try:
+        parser = argparse.ArgumentParser(
+            description="Concatenate multiple mp4 files into a single video.")
+        parser.add_argument(
+            "directory", 
+            type=str, 
+            help="Directory containing the mp4 files.")
+        parser.add_argument(
+            "output_file", 
+            type=str, 
+            help="Output file name.")
+        # choose codec
+        parser.add_argument(
+            "--v-codec", type=str, default="libx264", 
+            help="Video codec to use for encoding. " \
+                + "[libx264, h264_nvenc, hevc, hevc_nvenc, etc.]")
+        parser.add_argument(
+            "--a-codec", type=str, default="aac", 
+            help="Audio codec to use for encoding.")
+        # -y --yes flag
+        parser.add_argument(
+            "-y", "--yes", action="store_true", 
+            help="Automatically answer yes to all prompts.")
+        # --log-level
+        parser.add_argument(
+            "--log-level", type=str, default="INFO", choices=LOG_LEVELS.keys(),
+            help="Log level. Default: 'INFO'.")
+        parser.add_argument(
+            "--log-file", type=str, default="./.logs/concat-mp4s.log", 
+            help="Log file path. Default: './.logs/concat-mp4s.log'. " \
+                + "To disable logging to a file, set to an empty string.")
+        parser.add_argument(
+            "--file-extension", type=str, default=".mp4",
+            help="File extension to search for. Default: '.mp4'.")
+        
 
-    args = parser.parse_args()
+        args = parser.parse_args()
 
-    LOG_LEVEL = LOG_LEVELS[args.log_level]
-    LOG_FILE = os.path.join(args.directory, '.logs', 'video-concat-mp4.log')
+        LOG_LEVEL = LOG_LEVELS[args.log_level]
+        LOG_FILE = os.path.join(args.directory, '.logs', 'video-concat-mp4.log')
 
-    v_codec = args.v_codec
-    a_codec = args.a_codec
+        v_codec = args.v_codec
+        a_codec = args.a_codec
 
-    directory = args.directory
-    output_file = args.output_file
+        directory = args.directory
+        output_file = args.output_file
+
+        if args.file_extension:
+            if args.file_extension[0] != '.': 
+                args.file_extension = '.' + args.file_extension
+
+        output_extension = output_file.split('.')[-1]
+
+        sorted_videos = get_sorted_videos(directory, args.file_extension)
+        last_datetime = save_file_modif_datetime(sorted_videos[-1])
+        if not args.v_codec:
+            most_common_video_codec = find_most_common_video_codec(sorted_videos)
+        else:
+            most_common_video_codec = args.v_codec
+        if not args.a_codec:
+            most_common_audio_codec = find_most_common_audio_codec(sorted_videos)
+        else:
+            most_common_audio_codec = a_codec
+        video_codecs = dict(count_video_codecs(sorted_videos))
+        audio_codecs = dict(count_audio_codecs(sorted_videos))
+        Logger.info(f"=== Stats: ==========")
+        Logger.info(f"Video codecs: {video_codecs}")
+        Logger.info(f"Audio codecs: {audio_codecs}")
+
+        resolution = get_video_resolution(sorted_videos[0])
+        resolution = f"scale={resolution[0]}:{resolution[1]}"
+        video_bitrate = get_video_bitrate(sorted_videos[0])
+        audio_bitrate = get_audio_bitrate(sorted_videos[0])
+        
+        Logger.info(f"=== Using: ==========")
+        Logger.info(f"Video codec: {most_common_video_codec}")
+        Logger.info(f"Audio codec: {most_common_audio_codec}")
+        Logger.info(f"Resolution: {resolution}")
+        Logger.info(f"Video bitrate: {fancy_int(video_bitrate)}")
+        Logger.info(f"Audio bitrate: {fancy_int(audio_bitrate)}")
+        Logger.info(f"Output file: {output_file}")
+        Logger.info(f"=====================")
 
 
-    sorted_videos = get_sorted_videos(directory)
-    last_datetime = save_file_modif_datetime(sorted_videos[-1])
-    most_common_video_codec = find_most_common_video_codec(sorted_videos)
-    most_common_audio_codec = find_most_common_audio_codec(sorted_videos)
-    video_codecs = dict(count_video_codecs(sorted_videos))
-    audio_codecs = dict(count_audio_codecs(sorted_videos))
-    Logger.info(f"=== Stats: ==========")
-    Logger.info(f"Video codecs: {video_codecs}")
-    Logger.info(f"Audio codecs: {audio_codecs}")
+        ok = ''
+        if not args.yes:
+            ok = Logger.input(f"OK? [Y/n]")
+        if (ok.lower() != 'y' \
+            and ok.lower() != 'yes' \
+            and ok != '') \
+            and not args.yes:
+            Logger.error("User aborted")
+            exit()
 
-    resolution = get_video_resolution(sorted_videos[0])
-    resolution = f"scale={resolution[0]}:{resolution[1]}"
-    video_bitrate = get_video_bitrate(sorted_videos[0])
-    audio_bitrate = get_audio_bitrate(sorted_videos[0])
-    
-    Logger.info(f"=== Using: ==========")
-    Logger.info(f"Video codec: {most_common_video_codec}")
-    Logger.info(f"Audio codec: {most_common_audio_codec}")
-    Logger.info(f"Resolution: {resolution}")
-    Logger.info(f"Video bitrate: {fancy_int(video_bitrate)}")
-    Logger.info(f"Audio bitrate: {fancy_int(audio_bitrate)}")
-    Logger.info(f"Output file: {output_file}")
-    Logger.info(f"=====================")
+        raws = many_convert_to(sorted_videos, video_bitrate, output_extension, v_codec, a_codec)
+        concatenate_videos(raws, output_file, v_codec, a_codec)
+        
+        for video in raws:
+            os.remove(video)
 
-    ok = ''
-    if not args.yes:
-        ok = Logger.input(f"OK? [Y/n]")
-    if (ok.lower() != 'y' \
-        and ok.lower() != 'yes' \
-        and ok != '') \
-        and not args.yes:
-        Logger.error("User aborted")
-        exit()
+        set_file_modif_datetime(output_file, last_datetime)
+        Logger.info("Output file's last modified datetime set to the latest video's datetime")
 
-    raws = many_convert_to(sorted_videos, v_codec, a_codec)
-    concatenate_videos(raws, output_file, v_codec, a_codec)
-    for video in raws:
-        os.remove(video)
+        Logger.happy(f"Output file: {output_file}")
+
+    except Exception as e:
+        Logger.error(str(e), do_inspect=True)
+    except KeyboardInterrupt:
+        Logger.error("KeyboardInterrupt")
+
     if os.path.exists(os.path.join(directory, '.temp')):
+        files = os.listdir(os.path.join(directory, '.temp'))
+        for file in files:
+            os.remove(os.path.join(directory, '.temp', file))
         os.rmdir(os.path.join(directory, '.temp'))
         Logger.info("Removed temp folder")
 
-    set_file_modif_datetime(output_file, last_datetime)
-    Logger.info("Output file's last modified datetime set to the latest video's datetime")
-
-    Logger.happy(f"Output file: {output_file}")
     exit()
