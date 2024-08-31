@@ -292,10 +292,20 @@ def get_video_audio_codec(video_file):
 
 # Function to convert AVI to MP4
 def convert(filename, output_folder, output_format, codec, bitrate, 
-            audio_codec):
-    base_name = os.path.splitext(filename)[0]
-    output_file = f"{os.path.join(output_folder, base_name)}.{output_format}"
+            audio_codec, scale=None, fps=None):
+    base_name = os.path.splitext(os.path.basename(filename))[0]
+    # if output_folder is folder 
+
+    if '.' in output_format:
+        output_format = output_format.split('.')[-1]
+
+    if os.path.isdir(output_folder):
+        output_file = f"{os.path.join(output_folder, base_name)}.{output_format}"
+    else:
+        output_file = output_folder
     Logger.debug(f"Filename: {filename}")
+    Logger.debug(f"Base name: {base_name}")
+    Logger.debug(f"Output folder: {output_folder}")
     Logger.debug(f"Output file: {output_file}")
 
     # Get the last modified time of the original file
@@ -335,6 +345,8 @@ def convert(filename, output_folder, output_format, codec, bitrate,
         '-hwaccel', 'cuda' if nvenc else 'auto',
         "-i", filename,
         "-c:v", codec,
+        *(["-vf", f"scale={scale}"] if scale else []),
+        *(["-r", str(fps)] if fps else []),
         "-b:v", str(bitrate),
         "-c:a", audio_codec,
         '-strict', 'experimental',
@@ -390,17 +402,28 @@ if __name__ == "__main__":
         "--log-file", type=str, default="./.logs/encode-video.log", 
         help="Log file path. Default: './.logs/encode-video.log'. " \
             + "To disable logging to a file, set to an empty string.")
+    parser.add_argument(
+        "--resolution", type=str, default="",
+        help="Resolution for the output files (e.g., '1920x1080').")
+    parser.add_argument(
+        "--fps", type=int, default=None,
+        help="Frames per second for the output files (e.g., 30).")
     
     args = parser.parse_args()
 
     LOG_LEVEL = LOG_LEVELS[args.log_level]
+    args.resolution = args.resolution.replace('_', '-')
     
     Logger.debug(f"Input path: {args.input_path}")
     Logger.debug(f"Output folder: {args.output_folder}")
     Logger.debug(f"Input format: {args.input_format}")
     Logger.debug(f"Output format: {args.output_format}")
+    Logger.debug(f"Resolution: {args.resolution}")
+    Logger.debug(f"FPS: {args.fps}")
     Logger.debug(f"Codec: {args.codec}")
     Logger.debug(f"Bitrate: {args.bitrate}")
+    Logger.debug(f"Audio codec: {args.audio_codec}")
+
 
 
     # if no output folder is specified, save in the same folder as the input file
@@ -423,7 +446,10 @@ if __name__ == "__main__":
             convert(
                 args.input_path, args.output_folder, 
                 args.output_format, args.codec, args.bitrate, 
-                audio_codec=args.audio_codec)
+                audio_codec=args.audio_codec,
+                scale=args.resolution.replace('x', ':') \
+                    if args.resolution else None,
+                fps=args.fps)
     else:
         if not args.log_file:
             LOG_FILE = args.log_file = os.path.join(args.input_path, '.logs', 'encode-video.log')
@@ -440,7 +466,10 @@ if __name__ == "__main__":
                     convert(
                         file, args.output_folder,
                         args.output_format, args.codec, args.bitrate,
-                        audio_codec=args.audio_codec)
+                        audio_codec=args.audio_codec,
+                        scale=args.resolution.replace('x', ':') \
+                            if args.resolution else None,
+                        fps=args.fps)
             except Exception as e:
                 Logger.error(f"Error converting {file}: {e}")
     Logger.happy("Conversion complete!")
