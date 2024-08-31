@@ -280,7 +280,11 @@ class Logger:
 
 
 def get_sorted_videos(directory, fextension='.mp4'):
-    video_files = [f for f in os.listdir(directory) if f.lower().endswith(fextension.lower())]
+    try:
+        video_files = [f for f in os.listdir(directory) if f.lower().endswith(fextension.lower())]
+    except FileNotFoundError:
+        Logger.error(f"Files with extension '{fextension}' not found in {directory}")
+        exit(1)
     video_files_with_time = [(os.path.join(directory, f), os.path.getmtime(os.path.join(directory, f))) for f in video_files]
     sorted_videos = sorted(video_files_with_time, key=lambda x: x[1])
     return [video[0] for video in sorted_videos]
@@ -365,7 +369,7 @@ def count_audio_codecs(video_list):
     return Counter(codecs)
 
 
-def convert_to(filename, bitrate, new_file_extension='mp4', v_codec='h264', a_codec='aac', scale='1280:720'):
+def convert_to(filename, bitrate, new_file_extension='mp4', v_codec='h264', a_codec='aac', scale='scale=1280:720'):
     # Get video folder to save the new video
     video_folder = os.path.dirname(filename)
     video_folder = os.path.join(video_folder, '.temp')
@@ -382,7 +386,7 @@ def convert_to(filename, bitrate, new_file_extension='mp4', v_codec='h264', a_co
         '-stats',
         '-y',  # Overwrite output file if it exists
         '-i', filename,
-        '-vf', f'scale={scale}',
+        '-vf', f'{scale}',
         '-c:v', v_codec,
         "-b:v", str(bitrate),
         '-c:a', a_codec,
@@ -400,7 +404,7 @@ def convert_to(filename, bitrate, new_file_extension='mp4', v_codec='h264', a_co
     return new_filename
 
 
-def many_convert_to(video_list, bitrate, new_file_extension, v_codec='h264', a_codec='aac', scale='1280:720'):
+def many_convert_to(video_list, bitrate, new_file_extension, v_codec='h264', a_codec='aac', scale='scale=1280:720'):
     raws = []
     for video in video_list:
         raw_filename = convert_to(video, bitrate, new_file_extension, v_codec, a_codec, scale)
@@ -419,7 +423,7 @@ def set_file_modif_datetime(filename, last_modified_time):
     os.utime(filename, (last_modified_time, last_modified_time))
 
 
-def concatenate_videos(video_list, output_file, codec, audio_codec):
+def concatenate_videos(video_list, output_file, codec, bitrate, audio_codec):
     temp_folder = os.path.dirname(video_list[0])
     # Create temp folder if it doesn't exist
     if not os.path.exists(temp_folder):
@@ -448,6 +452,8 @@ def concatenate_videos(video_list, output_file, codec, audio_codec):
         # '-map', '[v]',
         # '-map', '[a]',
         '-c:v', codec,  # Video codec
+        '-b:v', str(bitrate),  # Use the same bitrate as the input videos
+        # resolution as scale=1280:720
         '-c:a', audio_codec,  # Audio codec
         '-strict', 'experimental',
         '-fps_mode', 'vfr',  # Variable frame rate to handle frame timing correctly
@@ -529,6 +535,9 @@ if __name__ == "__main__":
         output_extension = output_file.split('.')[-1]
 
         sorted_videos = get_sorted_videos(directory, args.file_extension)
+        if len(sorted_videos) == 0:
+            Logger.error(f"No videos found in {directory} with extension '{args.file_extension}'")
+            exit(1)
         last_datetime = save_file_modif_datetime(sorted_videos[-1])
         if not args.v_codec:
             most_common_video_codec = find_most_common_video_codec(sorted_videos)
@@ -569,8 +578,8 @@ if __name__ == "__main__":
             Logger.error("User aborted")
             exit()
 
-        raws = many_convert_to(sorted_videos, video_bitrate, output_extension, v_codec, a_codec)
-        concatenate_videos(raws, output_file, v_codec, a_codec)
+        raws = many_convert_to(sorted_videos, video_bitrate, output_extension, v_codec, a_codec, scale=resolution)
+        concatenate_videos(raws, output_file, v_codec, video_bitrate, a_codec)
         
         for video in raws:
             os.remove(video)
