@@ -4,7 +4,7 @@ import os, argparse, subprocess
 import datetime
 
 # Directory where ffmpeg.exe is located
-FFMPEG_PATH = r"ffmpeg.exe"
+FFMPEG_PATH = r"ffmpeg"
 
 # ==============================================================================
 # Logger class
