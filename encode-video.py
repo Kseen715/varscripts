@@ -9,7 +9,7 @@ FFMPEG_PATH = r"ffmpeg.exe"
 # ==============================================================================
 # Logger class
 # by Kseen715
-# v1.5
+# v1.5.2
 # ==============================================================================
 import datetime, inspect
 
@@ -151,7 +151,7 @@ class Logger:
                         + f'[{level}] {msg}\n')
             if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
                 with open(LOG_FILE, 'rb') as f:
-                    f.seek(-LOG_FILE_MAX_SIZE, os.SEEK_END)
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
                     data = f.read()
                 with open(LOG_FILE, 'wb') as f:
                     f.write(data)
@@ -180,7 +180,7 @@ class Logger:
                         + inpt + '\n')
             if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
                 with open(LOG_FILE, 'rb') as f:
-                    f.seek(-LOG_FILE_MAX_SIZE, os.SEEK_END)
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
                     data = f.read()
                 with open(LOG_FILE, 'wb') as f:
                     f.write(data)
@@ -339,7 +339,7 @@ def convert(filename, output_folder, output_format, codec, bitrate,
     ffmpeg_command = [
         FFMPEG_PATH,
         '-hide_banner',
-        '-loglevel', 'error',
+        '-loglevel', *(['error'] if LOG_LEVEL < 5 else ['info']),
         '-stats',
         '-y',
         '-hwaccel', 'cuda' if nvenc else 'auto',
@@ -456,6 +456,9 @@ if __name__ == "__main__":
         else:
             LOG_FILE = args.log_file
         for file in os.listdir(args.input_path):
+            # if file is folder
+            if not os.path.isfile(os.path.join(args.input_path, file)):
+                continue
             try:
                 if (file.lower().endswith(f".{args.input_format}") \
                     and os.path.isfile(os.path.join(args.input_path, file))) \

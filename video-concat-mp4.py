@@ -18,7 +18,7 @@ import concurrent.futures
 # ==============================================================================
 # Logger class
 # by Kseen715
-# v1.5
+# v1.5.2
 # ==============================================================================
 import datetime, inspect
 
@@ -160,7 +160,7 @@ class Logger:
                         + f'[{level}] {msg}\n')
             if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
                 with open(LOG_FILE, 'rb') as f:
-                    f.seek(-LOG_FILE_MAX_SIZE, os.SEEK_END)
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
                     data = f.read()
                 with open(LOG_FILE, 'wb') as f:
                     f.write(data)
@@ -189,7 +189,7 @@ class Logger:
                         + inpt + '\n')
             if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
                 with open(LOG_FILE, 'rb') as f:
-                    f.seek(-LOG_FILE_MAX_SIZE, os.SEEK_END)
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
                     data = f.read()
                 with open(LOG_FILE, 'wb') as f:
                     f.write(data)
@@ -276,7 +276,6 @@ class Logger:
 # ==============================================================================
 # End of Logger class
 # ==============================================================================
-
 
 
 def get_sorted_videos(directory, fextension='.mp4'):
