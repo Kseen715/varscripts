@@ -4,6 +4,13 @@ import subprocess
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
+# ==============================================================================
+# Logger class
+# by Kseen715
+# v1.5.2
+# ==============================================================================
+import datetime, inspect
+
 # To drop the following imports and whole requirements.txt file:
 # ==============================================================================
 # Part of colorama.py module
@@ -95,9 +102,7 @@ class colorama:
 # End of colorama.py module
 # ==============================================================================
 
-
-class Logger:
-    LOG_LEVELS = {
+LOG_LEVELS = {
         'NONE': 0,
         'ERROR': 1,
         'WARNING': 2,
@@ -106,62 +111,160 @@ class Logger:
         'DEBUG': 5,
     }
 
-    LOG_LEVEL = LOG_LEVELS['DEBUG']
+# Log level for stdout/stderr. 
+# Will be saved to the log file regardless of this setting.
+LOG_LEVEL = 5
+
+# Log file, stdout only if empty
+LOG_FILE = './.logs/log.log'
+LOG_FILE_MAX_SIZE = 1024 * 1024  # 1 MB
+
+
+class Logger:
+    @staticmethod
+    def __custom_print__(msg: str, level: str, style: str = None, 
+                         do_inspect: bool = False, 
+                         inspect_stack_offset: int = 1, 
+                         do_write_file: bool = True,
+                         do_write_stdout: bool = True):
+        """Log custom message
+
+        Args:
+            msg (str): Custom message
+            level (int): Log level
+            color (str): Color
+        """
+        while msg.endswith('\n'):
+            msg = msg[:-1]
+        if do_inspect:
+            frame = inspect.stack()[inspect_stack_offset]
+            file_name = frame.filename
+            line_number = frame.lineno
+            msg = f"{msg} ({file_name}:{line_number})"
+        if LOG_FILE and do_write_file:
+            if not os.path.exists(os.path.dirname(LOG_FILE)):
+                os.makedirs(os.path.dirname(LOG_FILE))
+            with open(LOG_FILE, 'a') as f:
+                f.write(f'{datetime.datetime.now()} ' \
+                        + f'[{level}] {msg}\n')
+            if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
+                with open(LOG_FILE, 'rb') as f:
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
+                    data = f.read()
+                with open(LOG_FILE, 'wb') as f:
+                    f.write(data)
+        if do_write_stdout:
+            print(f'{style}{datetime.datetime.now()} ' \
+                + f'[{level}] {msg}{colorama.Style.RESET_ALL}')
+        
 
     @staticmethod
-    def debug(msg):
+    def __custom_input__(msg: str, level: str, style: str,
+                         do_write_file: bool = True):
+        """Log custom message
+
+        Args:
+            msg (str): Custom message
+            color (str): Color
+        """
+        inpt = input(f'{style}{datetime.datetime.now()} ' \
+                  + f'[{level}] {msg}{colorama.Style.RESET_ALL}')
+        if LOG_FILE and do_write_file:
+            if not os.path.exists(os.path.dirname(LOG_FILE)):
+                os.makedirs(os.path.dirname(LOG_FILE))
+            with open(LOG_FILE, 'a') as f:
+                f.write(f'{style}{datetime.datetime.now()} ' \
+                        + f'[{level}] {msg}{colorama.Style.RESET_ALL}' \
+                        + inpt + '\n')
+            if os.path.getsize(LOG_FILE) > LOG_FILE_MAX_SIZE * 0.9:
+                with open(LOG_FILE, 'rb') as f:
+                    f.seek(-int(LOG_FILE_MAX_SIZE * 0.9), os.SEEK_END)
+                    data = f.read()
+                with open(LOG_FILE, 'wb') as f:
+                    f.write(data)
+        return inpt
+
+
+    @staticmethod
+    def debug(msg, do_inspect=True):
         """Log debug message
 
         Args:
             msg (str): Debug message
         """
-        if Logger.LOG_LEVEL >= Logger.LOG_LEVELS['DEBUG']:
-            print(f'{colorama.Fore.CYAN}{datetime.datetime.now()} ' \
-                  + f'[DEBUG] {msg}{colorama.Style.RESET_ALL}')
+        Logger.__custom_print__(msg, 'DEBUG', \
+                                colorama.Fore.LIGHTMAGENTA_EX, \
+                                do_inspect, 2, True, \
+                                LOG_LEVEL >= LOG_LEVELS['DEBUG'])
+            
+
 
     @staticmethod
-    def info(msg):
+    def info(msg, do_inspect=False):
         """Log info message
 
         Args:
             msg (str): Info message
         """
-        if Logger.LOG_LEVEL >= Logger.LOG_LEVELS['INFO']:
-            print(f'{colorama.Style.RESET_ALL}{datetime.datetime.now()} ' \
-                  + f'[INFO] {msg}{colorama.Style.RESET_ALL}')
+        Logger.__custom_print__(msg, 'INFO', \
+                                colorama.Style.RESET_ALL, \
+                                do_inspect, 2, True, \
+                                LOG_LEVEL >= LOG_LEVELS['INFO'])
+
 
     @staticmethod
-    def happy(msg):
+    def happy(msg, do_inspect=False):
         """Log happy message
 
         Args:
             msg (str): Happy message
         """
-        if Logger.LOG_LEVEL >= Logger.LOG_LEVELS['SUCCESS']:
-            print(f'{colorama.Fore.GREEN}{datetime.datetime.now()} ' \
-                  + f'[SUCCESS] {msg}{colorama.Style.RESET_ALL}')
+        Logger.__custom_print__(msg, 'SUCCESS', \
+                                colorama.Fore.GREEN, \
+                                do_inspect, 2, True, \
+                                LOG_LEVEL >= LOG_LEVELS['SUCCESS'])
+
 
     @staticmethod
-    def warning(msg):
+    def warning(msg, do_inspect=False):
         """Log warning message
 
         Args:
             msg (str): Warning message
         """
-        if Logger.LOG_LEVEL >= Logger.LOG_LEVELS['WARNING']:
-            print(f'{colorama.Fore.YELLOW}{datetime.datetime.now()} ' \
-                  + f'[WARNING] {msg}{colorama.Style.RESET_ALL}')
+        Logger.__custom_print__(msg, 'WARNING', \
+                                colorama.Fore.YELLOW, \
+                                do_inspect, 2, True, \
+                                LOG_LEVEL >= LOG_LEVELS['WARNING'])
+
 
     @staticmethod
-    def error(msg):
+    def error(msg, do_inspect=True):
         """Log error message
 
         Args:
             msg (str): Error message
         """
-        if Logger.LOG_LEVEL >= Logger.LOG_LEVELS['ERROR']:
-            print(f'{colorama.Fore.RED}{datetime.datetime.now()} ' \
-                  + f'[ERROR] {msg}{colorama.Style.RESET_ALL}')
+        Logger.__custom_print__(msg, 'ERROR', \
+                                colorama.Fore.RED, \
+                                do_inspect, 2, True, \
+                                LOG_LEVEL >= LOG_LEVELS['ERROR'])
+
+
+    @staticmethod
+    def input(msg, do_inspect=False):
+        """Log input message
+
+        Args:
+            msg (str): Input message
+        """
+        return Logger.__custom_input__(msg, 'INPUT', \
+                                        colorama.Fore.CYAN, \
+                                        do_inspect, 2)
+
+# ==============================================================================
+# End of Logger class
+# ==============================================================================
 
 def encode_audio(input_path, output_folder, input_format, output_format, bitrate, max_workers=4):
     # Ensure output folder exists
