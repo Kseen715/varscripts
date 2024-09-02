@@ -393,7 +393,8 @@ def get_write_video_label(filepath: str):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
+    parser = argparse.ArgumentParser(
+        description='Get and write video label to file')
 
     parser.add_argument(
         'filepath',
