@@ -368,8 +368,10 @@ def convert(filename, output_folder, output_format, codec, bitrate,
     # Set the last modified time of the new file to match the original file
     os.utime(output_file, (last_modified_time, last_modified_time))
 
+
+
+def main():
 # Loop through all .avi files in the current directory
-if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description='Convert video files to a different format using ffmpeg.')
 
@@ -483,6 +485,9 @@ if __name__ == "__main__":
                 Logger.debug(f"Thread finished: {file}")
             except Exception as e:
                 Logger.error(f"Error converting {file}: {e}")
+            except KeyboardInterrupt:
+                Logger.error(f"Conversion interrupted.")
+                exit(1)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=int(args.jobs)) as executor:
             futures = []
@@ -497,3 +502,14 @@ if __name__ == "__main__":
 
             
     Logger.happy("Conversion complete!")
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        Logger.error(f"Error: {e}")
+        exit(1)
+    except KeyboardInterrupt:
+        Logger.error(f"Conversion interrupted.")
+        exit(1)
