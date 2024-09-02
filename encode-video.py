@@ -292,7 +292,7 @@ def get_video_audio_codec(video_file):
 
 # Function to convert AVI to MP4
 def convert(filename, output_folder, output_format, codec, bitrate, 
-            audio_codec, scale=None, fps=None):
+            audio_codec, scale=None, fps=None, rewrite=False):
     base_name = os.path.splitext(os.path.basename(filename))[0]
     # if output_folder is folder 
 
@@ -341,7 +341,7 @@ def convert(filename, output_folder, output_format, codec, bitrate,
         '-hide_banner',
         '-loglevel', *(['error'] if LOG_LEVEL < 5 else ['info']),
         '-stats',
-        '-y',
+        '-y' if rewrite else '-n',
         '-hwaccel', 'cuda' if nvenc else 'auto',
         "-i", filename,
         "-c:v", codec,
@@ -408,6 +408,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--fps", type=int, default=None,
         help="Frames per second for the output files (e.g., 30).")
+    parser.add_argument(
+        "--rewrite", action='store_true', 
+        help="Rewrite the output file if it already exists.")
     
     args = parser.parse_args()
 
@@ -449,10 +452,12 @@ if __name__ == "__main__":
                 audio_codec=args.audio_codec,
                 scale=args.resolution.replace('x', ':') \
                     if args.resolution else None,
-                fps=args.fps)
+                fps=args.fps,
+                rewrite=args.rewrite)
     else:
         if not args.log_file:
-            LOG_FILE = args.log_file = os.path.join(args.input_path, '.logs', 'encode-video.log')
+            LOG_FILE = args.log_file = os.path.join(
+                args.input_path, '.logs', 'encode-video.log')
         else:
             LOG_FILE = args.log_file
         for file in os.listdir(args.input_path):
@@ -472,7 +477,8 @@ if __name__ == "__main__":
                         audio_codec=args.audio_codec,
                         scale=args.resolution.replace('x', ':') \
                             if args.resolution else None,
-                        fps=args.fps)
+                        fps=args.fps,
+                        rewrite=args.rewrite)
             except Exception as e:
                 Logger.error(f"Error converting {file}: {e}")
     Logger.happy("Conversion complete!")
