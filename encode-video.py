@@ -411,6 +411,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--rewrite", action='store_true', 
         help="Rewrite the output file if it already exists.")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=1,
+        help="Number of jobs to run in parallel. Default is 1.")
     
     args = parser.parse_args()
 
@@ -427,7 +430,7 @@ if __name__ == "__main__":
     Logger.debug(f"Bitrate: {args.bitrate}")
     Logger.debug(f"Audio codec: {args.audio_codec}")
 
-
+    import concurrent.futures
 
     # if no output folder is specified, save in the same folder as the input file
     if not args.output_folder:
@@ -460,10 +463,8 @@ if __name__ == "__main__":
                 args.input_path, '.logs', 'encode-video.log')
         else:
             LOG_FILE = args.log_file
-        for file in os.listdir(args.input_path):
-            # if file is folder
-            if not os.path.isfile(os.path.join(args.input_path, file)):
-                continue
+        
+        def convert_file(file, args):
             try:
                 if (file.lower().endswith(f".{args.input_format}") \
                     and os.path.isfile(os.path.join(args.input_path, file))) \
@@ -479,6 +480,20 @@ if __name__ == "__main__":
                             if args.resolution else None,
                         fps=args.fps,
                         rewrite=args.rewrite)
+                Logger.debug(f"Thread finished: {file}")
             except Exception as e:
                 Logger.error(f"Error converting {file}: {e}")
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=int(args.jobs)) as executor:
+            futures = []
+            for file in os.listdir(args.input_path):
+                # if file is folder
+                if not os.path.isfile(os.path.join(args.input_path, file)):
+                    continue
+                futures.append(executor.submit(convert_file, file, args))
+            
+            # Wait for all futures to complete
+            concurrent.futures.wait(futures)
+
+            
     Logger.happy("Conversion complete!")
