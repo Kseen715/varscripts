@@ -365,10 +365,16 @@ def write_video_label(filepath: str, label: str):
     """
     filename = os.path.basename(filepath)
     Logger.debug(f"Old filename: '{filename}'")
-    if '[' not in filename or ']' not in filename:
-        new_filename = filename.split('.')[0] + ' ' + label + '.' + filename.split('.')[1]
+
+    # get every part of name, except extenstion
+    filename_base = os.path.splitext(filename)[0]
+    file_ext = os.path.splitext(filename)[1]
+    if '[' not in filename_base or ']' not in filename_base:
+        new_filename = filename_base + ' ' + label + file_ext
+        # new_filename = filename.split('.')[0] + ' ' + label + '.' + filename.split('.')[1]
     else:
-        new_filename = filename.split('[')[0] + label + filename.split(']')[1]
+        new_filename = filename_base.split('[')[0] + label + file_ext
+        # new_filename = filename.split('[')[0] + label + filename.split(']')[1]
     new_filepath = os.path.join(os.path.dirname(filepath), new_filename)
     os.rename(filepath, new_filepath)
     Logger.debug(f"Renamed file: '{filepath}' -> '{new_filepath}'")
@@ -380,21 +386,26 @@ def get_write_video_label(filepath: str):
     Args:
         filepath (str): File path
     """
-    # is file exists
-    if not os.path.exists(filepath):
-        Logger.error(f"File not found: '{filepath}'")
-        return
-    old_label = read_file_label(filepath)
-    old_label = '[' + ','.join(old_label) + ']'
-    label = generate_video_label(filepath)
+    try:
+        # is file exists
+        if not os.path.exists(filepath):
+            Logger.error(f"File not found: '{filepath}'")
+            return
+        old_label = read_file_label(filepath)
+        old_label = '[' + ','.join(old_label) + ']'
+        label = generate_video_label(filepath)
 
-    Logger.info(f"File: '{filepath}'")
-    if old_label != label:
-        write_video_label(filepath, label)
         Logger.info(f"File: '{filepath}'")
-        Logger.info(f"Label changed: '{old_label}' -> '{label}'")
-    else:
-        Logger.info(f"Label correct: '{label}', skipping...")
+        if old_label != label:
+            write_video_label(filepath, label)
+            Logger.info(f"File: '{filepath}'")
+            Logger.info(f"Label changed: '{old_label}' -> '{label}'")
+        else:
+            Logger.info(f"Label correct: '{label}', skipping...")
+    except Exception as e:
+        Logger.error(f"Error processing file: '{filepath}': {e}")
+    except KeyboardInterrupt as e:
+        Logger.error(f"Interrupted processing file: '{filepath}'")
 
 
 def get_list_of_files(directory: str, ext: str) -> list:
@@ -409,16 +420,30 @@ def get_list_of_files(directory: str, ext: str) -> list:
     """
     files = []
     for file in os.listdir(directory):
-        if file.endswith(ext):
+        if file.lower().endswith(ext.lower()):
             files.append(os.path.join(directory, file))
     return files
 
 import concurrent.futures
 import os
 
-if __name__ == '__main__':
+import argparse
+import subprocess
+import json
+import signal
+import concurrent.futures
+from threading import Event
+
+# Define a global event to signal threads to stop
+stop_event = Event()
+
+def signal_handler(sig, frame):
+    Logger.info("Interrupt received, shutting down...")
+    stop_event.set()
+
+def main():
     parser = argparse.ArgumentParser(
-        description='Get and write video label to file')
+        description='Get and write video label to file. Make sure filename does not contain "[" and "]" characters.')
 
     parser.add_argument(
         'filepath',
@@ -445,9 +470,24 @@ if __name__ == '__main__':
 
     if os.path.isdir(args.filepath):
         files = get_list_of_files(args.filepath, args.file_ext)
-        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
+        with concurrent.futures.ProcessPoolExecutor(max_workers=args.jobs) as executor:
             futures = [executor.submit(get_write_video_label, file) for file in files]
-
-        concurrent.futures.wait(futures)
+            try:
+                concurrent.futures.wait(futures)
+            except KeyboardInterrupt:
+                Logger.info("Shutting down threads...")
+                stop_event.set()
+                for future in futures:
+                    future.cancel()
     else:
         get_write_video_label(args.filepath)
+
+
+if __name__ == '__main__':
+    signal.signal(signal.SIGINT, signal_handler)
+    try:
+        main()
+    except Exception as e:
+        Logger.error(f"Error: {e}")
+    except KeyboardInterrupt:
+        Logger.error("Interrupted")
