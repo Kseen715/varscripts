@@ -340,6 +340,11 @@ def generate_video_label(filepath: str) -> str:
     data['resolution'] = data['resolution'].split('x')[1]
     data['bitrate'] = data['bitrate'].replace(' kbps', 'Kbps')
     bitrate = int(data['bitrate'].replace('Kbps', ''))
+
+    delta = 5 # percentage
+
+    if abs(bitrate % 1000) <= (1000 * delta / 100):
+        bitrate = round(bitrate / 1000) * 1000
     # if bitrate can be displayed in Mbit/s
     if (bitrate % 1000 == 0 and bitrate >= 1000) or bitrate >= 10000:
         data['bitrate'] = f"{bitrate // 1000}Mbps" 
@@ -392,6 +397,25 @@ def get_write_video_label(filepath: str):
         Logger.info(f"Label correct: '{label}', skipping...")
 
 
+def get_list_of_files(directory: str, ext: str) -> list:
+    """Get list of files with specified extension in directory.
+
+    Args:
+        directory (str): Directory with video files
+        ext (str): File extension
+
+    Returns:
+        list: List of files
+    """
+    files = []
+    for file in os.listdir(directory):
+        if file.endswith(ext):
+            files.append(os.path.join(directory, file))
+    return files
+
+import concurrent.futures
+import os
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='Get and write video label to file')
@@ -404,9 +428,26 @@ if __name__ == '__main__':
     parser.add_argument(
         "--log-level", type=str, default="INFO", choices=LOG_LEVELS.keys(),
         help="Log level. Default: 'INFO'.")
+    parser.add_argument(
+        "--log-file", type=str, default=LOG_FILE,
+        help="Log file. Default: './.logs/log.log'.")
+    parser.add_argument(
+        "-j", "--jobs", type=int, default=os.cpu_count(),
+    )
+    parser.add_argument(
+        "--file-ext", type=str, default='.mp4',
+        help="File extension. Default: '.mp4'."
+    )
 
     args = parser.parse_args()
 
     LOG_LEVEL = LOG_LEVELS[args.log_level]
 
-    get_write_video_label(args.filepath)
+    if os.path.isdir(args.filepath):
+        files = get_list_of_files(args.filepath, args.file_ext)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=args.jobs) as executor:
+            futures = [executor.submit(get_write_video_label, file) for file in files]
+
+        concurrent.futures.wait(futures)
+    else:
+        get_write_video_label(args.filepath)
