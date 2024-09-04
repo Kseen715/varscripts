@@ -270,6 +270,9 @@ class Logger:
 
 import os, argparse, subprocess
 import json
+import concurrent.futures
+import signal
+from threading import Event
 
 def read_file_label(filepath: str) -> list:
     """Read label from file. Label contains in the name of the file.
@@ -423,16 +426,6 @@ def get_list_of_files(directory: str, ext: str) -> list:
         if file.lower().endswith(ext.lower()):
             files.append(os.path.join(directory, file))
     return files
-
-import concurrent.futures
-import os
-
-import argparse
-import subprocess
-import json
-import signal
-import concurrent.futures
-from threading import Event
 
 # Define a global event to signal threads to stop
 stop_event = Event()
