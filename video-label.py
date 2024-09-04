@@ -396,7 +396,7 @@ def get_write_video_label(filepath: str):
         label = generate_video_label(filepath)
 
         Logger.info(f"File: '{filepath}'")
-        if old_label != label:
+        if (old_label != label) and (label != '[]'):
             write_video_label(filepath, label)
             Logger.info(f"File: '{filepath}'")
             Logger.info(f"Label changed: '{old_label}' -> '{label}'")
