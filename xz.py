@@ -65,6 +65,6 @@ if __name__ == '__main__':
         for f in files:
             if args.e:
                 if f.endswith(args.e):
-                    compress_file(f)
+                    compress_file(f, threads)
             else:
                 compress_file(f, threads)
