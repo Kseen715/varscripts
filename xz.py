@@ -26,9 +26,9 @@ def compress_file(file_name, threads):
 
     file_size_after = os.path.getsize(file_name + '.xz')
     total_size_after += file_size_after
-    ratio = 100 - (file_size_after / file_size_before * 100)
+    ratio = (file_size_after / file_size_before * 100)
     print('\t> Took {:.6f}s'.format(end - start))
-    print('\t> Compression ratio: {:.3f}%'.format(ratio))
+    print('\t> Compression ratio: 100% -> {:.3f}%'.format(ratio))
 
 
 def decompress_file(file_name, threads):
@@ -89,5 +89,5 @@ if __name__ == '__main__':
                     return '{:.3f}GB'.format(size / 1024 / 1024 / 1024)
             print('Total size before: {}'.format(get_size_str(total_size_before)))
             print('Total size after: {}'.format(get_size_str(total_size_after)))
-            print('Total compression ratio: {:.3f}%'.format(100 - (total_size_after / total_size_before * 100)))
+            print('Total compression ratio: 100% -> {:.3f}%'.format((total_size_after / total_size_before * 100)))
 
