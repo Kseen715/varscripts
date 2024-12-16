@@ -12,19 +12,21 @@ import time
 
 
 def compress_file(file_name, threads):
-    print('Compressing file: {}'.format(file_name))
     cmd = ['xz', '-T{}'.format(threads), file_name]
     print(' '.join(cmd[:len(cmd) - 1] + ['"{}"'.format(file_name)]))
+    file_size_before = os.path.getsize(file_name)
 
     start = time.time()
     subprocess.call(cmd)
     end = time.time()
 
-    print('Compressed file: {} in {} seconds'.format(file_name, end - start))
+    file_size_after = os.path.getsize(file_name + '.xz')
+    ratio = 100 - (file_size_after / file_size_before * 100)
+    print('\t> Took {:.6f}s'.format(end - start))
+    print('\t> Compression ratio: {:.3f}%'.format(ratio))
 
 
 def decompress_file(file_name, threads):
-    print('Decompressing file: {}'.format(file_name))
     cmd = ['xz', '-T0', '-d', file_name]
     print(' '.join(cmd[:len(cmd) - 1] + ['"{}"'.format(file_name)]))
 
@@ -32,7 +34,7 @@ def decompress_file(file_name, threads):
     subprocess.call(cmd)
     end = time.time()
 
-    print('Decompressed file: {} in {} seconds'.format(file_name, end - start))
+    print('\t> Took {:.6f}s'.format(end - start))
 
 
 if __name__ == '__main__':
@@ -63,8 +65,9 @@ if __name__ == '__main__':
 
     else:
         for f in files:
-            if args.e:
-                if f.endswith(args.e):
+            if not f.endswith('.xz'):
+                if args.e:
+                    if f.endswith(args.e):
+                        compress_file(f, threads)
+                else:
                     compress_file(f, threads)
-            else:
-                compress_file(f, threads)
