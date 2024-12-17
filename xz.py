@@ -15,7 +15,7 @@ total_size_after = 0
 
 def compress_file(file_name, threads):
     global total_size_before, total_size_after
-    cmd = ['xz', '-T{}'.format(threads), file_name]
+    cmd = ['xz', '-T{}'.format(threads), '-v', file_name]
     print(' '.join(cmd[:len(cmd) - 1] + ['"{}"'.format(file_name)]))
     file_size_before = os.path.getsize(file_name)
     total_size_before += file_size_before
@@ -32,7 +32,7 @@ def compress_file(file_name, threads):
 
 
 def decompress_file(file_name, threads):
-    cmd = ['xz', '-T{}'.format(threads), '-d', file_name]
+    cmd = ['xz', '-T{}'.format(threads), '-v', '-d', file_name]
     print(' '.join(cmd[:len(cmd) - 1] + ['"{}"'.format(file_name)]))
 
     start = time.time()
